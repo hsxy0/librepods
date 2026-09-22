@@ -14,8 +14,8 @@ import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
 private const val TAG = "LibrePodsHook"
 
 @SuppressLint("DiscouragedApi", "PrivateApi")
-class KotlinModule: XposedModule() {
-    override fun onModuleLoaded(param: ModuleLoadedParam) {
+class KotlinModule(param: ModuleLoadedParam): XposedModule(param) {
+    init {
         log(Log.INFO, TAG, "module initialized at :: ${param.processName}")
         log(Log.INFO, TAG, "framework: $frameworkName($frameworkVersionCode) API $apiVersion")
     }

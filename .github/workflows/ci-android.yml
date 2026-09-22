@@ -11,6 +11,8 @@ on:
     paths:
       - 'android/**'
       - '.github/workflows/ci-android.yml'
+  pull_request_review:
+    types: [submitted]
   workflow_dispatch:
     inputs:
       branch:
@@ -29,6 +31,9 @@ concurrency:
 
 jobs:
   build:
+    # A submitted review only starts a package build once the review approves
+    # the PR. Other events keep their existing validation behavior.
+    if: ${{ github.event_name != 'pull_request_review' || github.event.review.state == 'approved' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -36,7 +41,7 @@ jobs:
         with:
           submodules: true
           persist-credentials: false
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref }}
+          ref: ${{ github.event_name == 'pull_request_review' && github.event.pull_request.head.sha || (github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref) }}
 
       - uses: actions/setup-java@v4
         with:
@@ -71,6 +76,8 @@ jobs:
 
       - name: Prepare release signing
         id: signing
+        # Never expose signing secrets to code checked out from a reviewed PR.
+        if: ${{ github.event_name != 'pull_request_review' }}
         shell: bash
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
