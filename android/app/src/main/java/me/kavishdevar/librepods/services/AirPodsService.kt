@@ -3222,18 +3222,17 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         // BluetoothSocket.connect() blocks the caller and cannot be stopped by
                         // coroutine cancellation alone. Closing the socket releases a stuck
                         // attempt so the next connection event is not ignored indefinitely.
-                        val timeoutHandler = Handler(Looper.getMainLooper())
-                        val closeTimedOutSocket = Runnable {
+                        val socketTimeoutJob = CoroutineScope(Dispatchers.IO).launch {
+                            delay(5_000L)
                             if (!socket.isConnected) {
                                 Log.w(TAG, "AACP socket connect timed out; closing socket")
                                 runCatching { socket.close() }
                             }
                         }
-                        timeoutHandler.postDelayed(closeTimedOutSocket, 5_000L)
                         try {
                             socket.connect()
                         } finally {
-                            timeoutHandler.removeCallbacks(closeTimedOutSocket)
+                            socketTimeoutJob.cancel()
                         }
                         this@AirPodsService.device = device
                         BluetoothConnectionManager.aacpSocket = socket
