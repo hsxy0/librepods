@@ -1,5 +1,16 @@
 <resources>
     <string name="app_description" translatable="false">让你的 AirPods 摆脱苹果的生态系统。</string>
+    <string name="notification_announcement_service">通知播报</string>
+    <string name="notification_announcements">通知播报</string>
+    <string name="notification_announcements_description">仅在手机锁屏且 AirPods 可作为蓝牙音频输出时，播报新通知内容。</string>
+    <string name="announce_notifications_on_lock_screen">锁屏时播报通知</string>
+    <string name="announce_notifications_on_lock_screen_description">播报应用名、发送者和消息内容；会跳过机密、常驻、系统及媒体通知。</string>
+    <string name="notification_access">通知使用权</string>
+    <string name="notification_access_granted">已授权</string>
+    <string name="notification_access_required">需要授权，点击允许 LibrePods 读取通知。</string>
+    <string name="voice_engine">语音引擎</string>
+    <string name="xiaoai_voice_engine_active">小爱语音引擎</string>
+    <string name="default_voice_engine_fallback">系统默认（未检测到小爱引擎）</string>
     <string name="app_widget_description">在主屏幕上即可查看 AirPods 的电池状态！</string>
     <string name="accessibility">辅助功能</string>
     <string name="tone_volume">提示音音量</string>
@@ -12,6 +23,10 @@
     <string name="case_alt">充电盒</string>
     <string name="test">测试</string>
     <string name="name">名称</string>
+    <string name="heart_rate">心率</string>
+    <string name="heart_rate_off">关闭</string>
+    <string name="heart_rate_measuring">正在检测…</string>
+    <string name="heart_rate_live">实时心率</string>
     <string name="noise_control">听音模式</string>
     <string name="off">关闭</string>
     <string name="transparency">通透模式</string>
@@ -155,8 +170,12 @@
     <string name="use_alternate_head_tracking_packets">使用备用头部追踪数据包</string>
     <string name="use_alternate_head_tracking_packets_description">如果头部追踪对你无效，请启用此选项。这将向 AirPods 发送不同的数据以请求/停止头部追踪数据。</string>
     <string name="act_as_an_apple_device">模拟为 Apple 设备</string>
-    <string name="act_as_an_apple_device_description">启用多设备连接和辅助功能，例如自定义通透模式（放大、音调、环境降噪、对话增强和均衡器）</string>
+    <string name="act_as_an_apple_device_description">仅模拟 Apple 蓝牙身份以启用多设备连接；下方两个风险较高的行为可以独立开启。</string>
     <string name="act_as_an_apple_device_warning">可能不稳定！！你的 AirPods 最多可以连接两台设备。如果你正在与 iPad 或 Mac 等 Apple 设备一起使用，请先连接该设备，然后再连接你的 Android 设备。</string>
+    <string name="vendor_att_socket">启用 PSM 31 辅助功能通道</string>
+    <string name="vendor_att_socket_description">部分听力和自定义通透控制需要此通道。测试 Mac + Android 稳定性时请保持关闭。</string>
+    <string name="smart_routing_auto_takeover">允许 Smart Routing 自动抢占</string>
+    <string name="smart_routing_auto_takeover_description">允许播放或来电时主动向另一台设备请求耳机控制权。关闭后仍可手动“移回此设备”。</string>
     <string name="reset_hook_offset">重置钩子偏移</string>
     <string name="reset_hook_offset_description">这将清除当前的钩子偏移，并要求你重新进行设置过程。你确定要继续吗？</string>
     <string name="reset">重置</string>
@@ -223,4 +242,23 @@
     <string name="listening_mode_adaptive_description">动态调整外部噪音</string>
     <string name="listening_mode_noise_cancellation_description">阻隔外部声音</string>
     <string name="apple_identity_model_description">将手机的蓝牙身份模拟为苹果设备，以使用兼容的连接功能。可用设置取决于耳机型号，不会为 AirPods 5 解锁 Pro 专属的听力功能。更改后需重启蓝牙。</string>
+    <string name="spatial_audio">空间音频</string>
+    <string name="spatial_audio_mode_description">选择关闭空间音频、让声场随头部移动，或通过头部追踪将声场锚定在手机方向。</string>
+    <string name="spatial_audio_off">关闭</string>
+    <string name="spatial_audio_off_description">关闭空间音频</string>
+    <string name="spatial_audio_fixed">固定</string>
+    <string name="spatial_audio_fixed_description">开启空间音频但不追踪头部，声场会随头部一起移动。</string>
+    <string name="spatial_audio_head_tracking">头部追踪</string>
+    <string name="spatial_audio_description">转动头部时让声场保持锚定在手机方向。需要 KSU 模块。</string>
+    <string name="spatial_audio_checking">正在检查 Root、UHID 和 Spatializer 支持…</string>
+    <string name="spatial_audio_helper_unavailable">Root 头部追踪组件或 /dev/uhid 不可用。</string>
+    <string name="spatial_audio_platform_unavailable">当前 Android 音频系统没有兼容的 Spatializer。</string>
+    <string name="background">后台</string>
+    <string name="hide_from_recents">在最近任务中隐藏 LibrePods</string>
+    <string name="hide_from_recents_description">隐藏应用卡片。</string>
+    <string name="log_capture_complete">日志采集完成，可以保存或分享文件。</string>
+    <string name="log_capture_partial">已保留部分日志：%1$s</string>
+    <string name="log_capture_failed">日志采集失败：%1$s</string>
+    <string name="log_capture_stopping">正在保存…</string>
+    <string name="log_capture_stop">停止采集</string>
 </resources>

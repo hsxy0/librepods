@@ -11,6 +11,7 @@ import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageLoadedParam
+import me.kavishdevar.librepods.milink.MiLinkAirPodsHook
 
 private const val TAG = "LibrePodsHook"
 
@@ -24,6 +25,10 @@ class KotlinModule(base: XposedInterface, param: ModuleLoadedParam): XposedModul
     @SuppressLint("UnsafeDynamicallyLoadedCode")
     override fun onPackageLoaded(param: PackageLoadedParam) {
         log(Log.INFO, TAG, "onPackageLoaded :: ${param.packageName}")
+
+        if (param.packageName == "com.milink.service") {
+            MiLinkAirPodsHook.install(this, param)
+        }
 
         if (param.packageName == "com.google.android.bluetooth" || param.packageName == "com.android.bluetooth") {
             log(Log.INFO, TAG, "Bluetooth app detected, hooking l2c_fcr_chk_chan_modes")

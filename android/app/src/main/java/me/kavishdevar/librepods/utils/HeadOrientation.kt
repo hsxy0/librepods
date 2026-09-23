@@ -18,12 +18,21 @@
 
 package me.kavishdevar.librepods.utils
 
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlin.math.roundToInt
 
 data class Orientation(val pitch: Float = 0f, val yaw: Float = 0f)
 data class Acceleration(val vertical: Float = 0f, val horizontal: Float = 0f)
+data class HeadPose(
+    val rx: Float,
+    val ry: Float,
+    val rz: Float,
+    val vx: Float = 0f,
+    val vy: Float = 0f,
+    val vz: Float = 0f,
+    val discontinuityCounter: Int = 0
+)
 
 object HeadTracking {
     private val _orientation = MutableStateFlow(Orientation())
@@ -32,60 +41,47 @@ object HeadTracking {
     private val _acceleration = MutableStateFlow(Acceleration())
     val acceleration = _acceleration.asStateFlow()
 
-    private val calibrationSamples = mutableListOf<Triple<Int, Int, Int>>()
-    private var isCalibrated = false
-    private var o1Neutral = 19000
-    private var o2Neutral = 0
-    private var o3Neutral = 0
+    private val poseProcessor = SpatialHeadPoseProcessor()
+    private var lastDiagnosticsLogNanos = 0L
+    private var lastRecenterState = SpatialRecenterState.LOCKED
 
-    private const val CALIBRATION_SAMPLE_COUNT = 10
-    private const val ORIENTATION_OFFSET = 5500
-
-    fun processPacket(packet: ByteArray) {
-        val o1 = bytesToInt(packet[43], packet[44])
-        val o2 = bytesToInt(packet[45], packet[46])
-        val o3 = bytesToInt(packet[47], packet[48])
+    fun processPacket(packet: ByteArray): HeadPose? {
+        if (packet.size < 55) return null
 
         val horizontalAccel = bytesToInt(packet[51], packet[52]).toFloat()
         val verticalAccel = bytesToInt(packet[53], packet[54]).toFloat()
-
-        if (!isCalibrated) {
-            calibrationSamples.add(Triple(o1, o2, o3))
-            if (calibrationSamples.size >= CALIBRATION_SAMPLE_COUNT) {
-                calibrate()
-            }
-            return
-        }
-
-        val orientation = calculateOrientation(o1, o2, o3)
-        _orientation.value = orientation
-
         _acceleration.value = Acceleration(verticalAccel, horizontalAccel)
-    }
 
-    private fun calibrate() {
-        if (calibrationSamples.size < 3) return
+        val sample = poseProcessor.processRawComponents(
+            bytesToInt(packet[43], packet[44]),
+            bytesToInt(packet[45], packet[46]),
+            bytesToInt(packet[47], packet[48]),
+            System.nanoTime()
+        ) ?: return null
 
-        // Add offset during calibration
-        o1Neutral = calibrationSamples.map { it.first + ORIENTATION_OFFSET }.average().roundToInt()
-        o2Neutral = calibrationSamples.map { it.second + ORIENTATION_OFFSET }.average().roundToInt()
-        o3Neutral = calibrationSamples.map { it.third + ORIENTATION_OFFSET }.average().roundToInt()
+        _orientation.value = Orientation(
+            pitch = Math.toDegrees(sample.pose.rx.toDouble()).toFloat(),
+            yaw = Math.toDegrees(sample.pose.rz.toDouble()).toFloat()
+        )
 
-        isCalibrated = true
-    }
-
-    @Suppress("UnusedVariable")
-    private fun calculateOrientation(o1: Int, o2: Int, o3: Int): Orientation {
-        if (!isCalibrated) return Orientation()
-
-        val o1Norm = (o1 + ORIENTATION_OFFSET) - o1Neutral
-        val o2Norm = (o2 + ORIENTATION_OFFSET) - o2Neutral
-        val o3Norm = (o3 + ORIENTATION_OFFSET) - o3Neutral
-
-        val pitch = (o2Norm + o3Norm) / 2f / 32000f * 180f
-        val yaw = (o2Norm - o3Norm) / 2f / 32000f * 180f
-
-        return Orientation(pitch, yaw)
+        val now = System.nanoTime()
+        if (sample.diagnostics.recenterState != lastRecenterState ||
+            now - lastDiagnosticsLogNanos >= DIAGNOSTICS_INTERVAL_NANOS
+        ) {
+            Log.i(
+                TAG,
+                "pose rawYaw=%.1f outputYaw=%.1f speed=%.1f anchor=%.1f state=%s".format(
+                    sample.diagnostics.rawYawDegrees,
+                    sample.diagnostics.outputYawDegrees,
+                    sample.diagnostics.angularSpeedDegreesPerSecond,
+                    sample.diagnostics.anchorYawDegrees,
+                    sample.diagnostics.recenterState
+                )
+            )
+            lastDiagnosticsLogNanos = now
+            lastRecenterState = sample.diagnostics.recenterState
+        }
+        return sample.pose
     }
 
     private fun bytesToInt(b1: Byte, b2: Byte): Int {
@@ -93,9 +89,13 @@ object HeadTracking {
     }
 
     fun reset() {
-        calibrationSamples.clear()
-        isCalibrated = false
+        poseProcessor.reset()
+        lastDiagnosticsLogNanos = 0L
+        lastRecenterState = SpatialRecenterState.LOCKED
         _orientation.value = Orientation()
         _acceleration.value = Acceleration()
     }
+
+    private const val TAG = "SpatialHeadPose"
+    private const val DIAGNOSTICS_INTERVAL_NANOS = 2_000_000_000L
 }

@@ -65,7 +65,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -124,25 +124,22 @@ fun TroubleshootingScreen() {
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
 
-    val logCollector = remember { LogCollector(context) }
+    val logCollector = remember { LogCollector.getInstance(context) }
     val savedLogs = remember { mutableStateListOf<File>() }
 
-    var isCollectingLogs by remember { mutableStateOf(false) }
+    val captureState by logCollector.captureState.collectAsState()
+    val isCollectingLogs = captureState.running
+    val isStoppingLogs = captureState.stopping
     var showTroubleshootingSteps by remember { mutableStateOf(false) }
     var currentStep by remember { mutableIntStateOf(0) }
     var logContent by remember { mutableStateOf("") }
+    var pendingExportFile by remember { mutableStateOf<File?>(null) }
+    var captureSummary by remember { mutableStateOf("") }
     var selectedLogFile by remember { mutableStateOf<File?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var isLoadingLogContent by remember { mutableStateOf(false) }
     var logContentLoaded by remember { mutableStateOf(false) }
-
-    LaunchedEffect(isCollectingLogs) {
-        while (isCollectingLogs) {
-            delay(250)
-            delay(250)
-        }
-    }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -155,13 +152,28 @@ fun TroubleshootingScreen() {
     var instructionText by remember { mutableStateOf("") }
     val isDarkTheme = isSystemInDarkTheme()
 
-    LaunchedEffect(Unit) {
-        withContext(Dispatchers.IO) {
-            val logsDir = File(context.filesDir, "logs")
-            if (logsDir.exists()) {
-                savedLogs.clear()
-                savedLogs.addAll(logsDir.listFiles()?.filter { it.name.endsWith(".txt") }
-                    ?.sortedByDescending { it.lastModified() } ?: emptyList())
+    LaunchedEffect(captureState) {
+        val files = withContext(Dispatchers.IO) {
+            File(context.filesDir, "logs").listFiles()?.filter {
+                it.name.endsWith(".txt") && it != captureState.activeFile
+            }?.sortedByDescending { it.lastModified() } ?: emptyList()
+        }
+        savedLogs.clear()
+        savedLogs.addAll(files)
+
+        if (captureState.running) {
+            showTroubleshootingSteps = true
+            currentStep = 3
+        } else {
+            captureState.result?.let { result ->
+                captureSummary = when (result.status) {
+                    LogCollector.Status.COMPLETE -> context.getString(R.string.log_capture_complete)
+                    LogCollector.Status.PARTIAL -> context.getString(R.string.log_capture_partial, result.reason)
+                    LogCollector.Status.FAILED -> context.getString(R.string.log_capture_failed, result.reason)
+                }
+                selectedLogFile = result.file
+                showTroubleshootingSteps = true
+                currentStep = 4
             }
         }
     }
@@ -169,11 +181,13 @@ fun TroubleshootingScreen() {
     val saveLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/plain")
     ) { uri ->
-        if (uri != null) {
+        val sourceFile = pendingExportFile
+        pendingExportFile = null
+        if (uri != null && sourceFile != null) {
             coroutineScope.launch(Dispatchers.IO) {
                 try {
-                    context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                        outputStream.write(logContent.toByteArray())
+                    checkNotNull(context.contentResolver.openOutputStream(uri)).use { outputStream ->
+                        sourceFile.inputStream().use { it.copyTo(outputStream) }
                     }
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "Log saved successfully", Toast.LENGTH_SHORT).show()
@@ -191,13 +205,10 @@ fun TroubleshootingScreen() {
         }
     }
 
-    LaunchedEffect(currentStep) {
+    LaunchedEffect(currentStep, captureSummary) {
         instructionText = when (currentStep) {
-            0 -> "First, let's ensure Xposed module is properly configured. Tap the button below to check Xposed scope settings."
-            1 -> "Please put your AirPods in the case and close it, so they disconnect completely."
-            2 -> "Preparing to collect logs... Please wait."
-            3 -> "Now, open the AirPods case and connect your AirPods. Logs are being collected. Connection will be detected automatically, or you can manually stop logging when you're done."
-            4 -> "Log collection complete! You can now save or share the logs."
+            3 -> "Logs are being collected without changing the current Bluetooth or AirPods state. Reproduce the issue, then stop collection when you're done."
+            4 -> captureSummary
             else -> ""
         }
     }
@@ -208,6 +219,15 @@ fun TroubleshootingScreen() {
         isLoadingLogContent = false
         logContentLoaded = false
         showBottomSheet = true
+    }
+
+    fun startCollection() {
+        if (isCollectingLogs) return
+        logContent = ""
+        selectedLogFile = null
+        captureSummary = ""
+        // The collector owns both the worker and its state across page recreation.
+        logCollector.startLogCollection()
     }
 
     val backdrop = rememberLayerBackdrop()
@@ -346,7 +366,7 @@ fun TroubleshootingScreen() {
                 exit = fadeOut(animationSpec = tween(300))
             ) {
                 Button(
-                    onClick = { showTroubleshootingSteps = true },
+                    onClick = ::startCollection,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -407,109 +427,7 @@ fun TroubleshootingScreen() {
                         Spacer(modifier = Modifier.height(16.dp))
 
                         when (currentStep) {
-                            0 -> {
-                                Button(
-                                    onClick = {
-                                        coroutineScope.launch {
-                                            logCollector.openXposedSettings(context)
-                                            delay(2000)
-                                            currentStep = 1
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = buttonBgColor,
-                                        contentColor = textColor
-                                    )
-                                ) {
-                                    Text("Open Xposed Settings")
-                                }
-                            }
-
-                            1 -> {
-                                Button(
-                                    onClick = {
-                                        currentStep = 2
-                                        isCollectingLogs = true
-
-                                        coroutineScope.launch {
-                                            try {
-                                                logCollector.clearLogs()
-
-                                                logCollector.addLogMarker(LogCollector.LogMarkerType.START)
-
-                                                logCollector.killBluetoothService()
-
-                                                withContext(Dispatchers.Main) {
-                                                    delay(500)
-                                                    currentStep = 3
-                                                }
-
-                                                val timestamp = SimpleDateFormat(
-                                                    "yyyyMMdd_HHmmss",
-                                                    Locale.US
-                                                ).format(Date())
-
-                                                logContent =
-                                                    logCollector.startLogCollection(
-                                                        listener = { /* Removed live log display */ },
-                                                        connectionDetectedCallback = {
-                                                            launch {
-                                                                delay(5000)
-                                                                withContext(Dispatchers.Main) {
-                                                                    if (isCollectingLogs) {
-                                                                        logCollector.stopLogCollection()
-                                                                        currentStep = 4
-                                                                        isCollectingLogs =
-                                                                            false
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    )
-
-                                                val logFile =
-                                                    logCollector.saveLogToInternalStorage(
-                                                        "airpods_log_$timestamp.txt",
-                                                        logContent
-                                                    )
-                                                logFile?.let {
-                                                    withContext(Dispatchers.Main) {
-                                                        savedLogs.add(0, it)
-                                                        selectedLogFile = it
-                                                        Toast.makeText(
-                                                            context,
-                                                            "Log saved: ${it.name}",
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                    }
-                                                }
-                                            } catch (e: Exception) {
-                                                withContext(Dispatchers.Main) {
-                                                    Toast.makeText(
-                                                        context,
-                                                        "Error collecting logs: ${e.message}",
-                                                        Toast.LENGTH_SHORT
-                                                    ).show()
-                                                    isCollectingLogs = false
-                                                    currentStep = 0
-                                                }
-                                            }
-                                        }
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = buttonBgColor,
-                                        contentColor = textColor
-                                    )
-                                ) {
-                                    Text("Continue")
-                                }
-                            }
-
-                            2, 3 -> {
+                            3 -> {
                                 Column(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalAlignment = Alignment.CenterHorizontally
@@ -521,46 +439,26 @@ fun TroubleshootingScreen() {
                                     Spacer(modifier = Modifier.height(8.dp))
 
                                     Text(
-                                        text = if (currentStep == 2) "Preparing..." else "Collecting logs...",
+                                        text = "Collecting logs...",
                                         fontSize = 14.sp,
                                         color = textColor
                                     )
 
-                                    if (currentStep == 3) {
-                                        Spacer(modifier = Modifier.height(16.dp))
+                                    Spacer(modifier = Modifier.height(16.dp))
 
-                                        Button(
-                                            onClick = {
-                                                coroutineScope.launch {
-                                                    logCollector.addLogMarker(
-                                                        LogCollector.LogMarkerType.CUSTOM,
-                                                        "Manual stop requested by user"
-                                                    )
-                                                    delay(1000)
-                                                    logCollector.stopLogCollection()
-                                                    delay(500)
-
-                                                    withContext(Dispatchers.Main) {
-                                                        currentStep = 4
-                                                        isCollectingLogs = false
-                                                        Toast.makeText(
-                                                            context,
-                                                            "Log collection stopped",
-                                                            Toast.LENGTH_SHORT
-                                                        ).show()
-                                                    }
-                                                }
-                                            },
-                                            shape = RoundedCornerShape(10.dp),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = buttonBgColor,
-                                                contentColor = textColor
-                                            ),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                        ) {
-                                            Text("Stop Collection")
-                                        }
+                                    Button(
+                                        onClick = {
+                                            logCollector.stopLogCollection()
+                                        },
+                                        enabled = !isStoppingLogs,
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = buttonBgColor,
+                                            contentColor = textColor
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(stringResource(if (isStoppingLogs) R.string.log_capture_stopping else R.string.log_capture_stop))
                                     }
                                 }
                             }
@@ -615,9 +513,8 @@ fun TroubleshootingScreen() {
                                     Button(
                                         onClick = {
                                             selectedLogFile?.let { file ->
-                                                saveLauncher.launch(
-                                                    file.absolutePath
-                                                )
+                                                pendingExportFile = file
+                                                saveLauncher.launch(file.name)
                                             }
                                         },
                                         shape = RoundedCornerShape(10.dp),
@@ -653,6 +550,8 @@ fun TroubleshootingScreen() {
                                     Text("Done")
                                 }
                             }
+
+                            else -> Unit
                         }
                     }
                 }
@@ -889,7 +788,8 @@ fun TroubleshootingScreen() {
                         Button(
                             onClick = {
                                 selectedLogFile?.let { file ->
-                                    saveLauncher.launch(file.absolutePath)
+                                    pendingExportFile = file
+                                    saveLauncher.launch(file.name)
                                 }
                             },
                             shape = RoundedCornerShape(10.dp),
@@ -912,9 +812,4 @@ fun TroubleshootingScreen() {
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            logCollector.stopLogCollection()
-        }
-    }
 }

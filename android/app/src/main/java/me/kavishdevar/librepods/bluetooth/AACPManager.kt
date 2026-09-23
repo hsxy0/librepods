@@ -27,6 +27,44 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.io.encoding.ExperimentalEncodingApi
 
+internal data class SmartRoutingPlaybackState(
+    val hostStreaming: Boolean?,
+    val otherDeviceAudioCategory: Int?,
+    val playingAppActive: Boolean?
+) {
+    val hasRemotePlaybackIntent: Boolean?
+        get() = when {
+            hostStreaming == true -> true
+            otherDeviceAudioCategory != null -> otherDeviceAudioCategory > 0
+            playingAppActive != null -> playingAppActive
+            hostStreaming != null -> false
+            else -> null
+        }
+}
+
+internal fun parseSmartRoutingPlaybackState(packetString: String): SmartRoutingPlaybackState {
+    val hostStreaming = HOST_STREAMING_STATE_REGEX.find(packetString)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.equals("YES", ignoreCase = true)
+    val audioCategory = OTHER_DEVICE_AUDIO_CATEGORY_REGEX.find(packetString)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.toIntOrNull()
+    val playingAppActive = PLAYING_APP_REGEX.find(packetString)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.let { value -> value.isNotBlank() && !value.equals("NA", ignoreCase = true) }
+    return SmartRoutingPlaybackState(hostStreaming, audioCategory, playingAppActive)
+}
+
+private val HOST_STREAMING_STATE_REGEX =
+    Regex("hostStreamingState[A-Z]?(YES|NO)", RegexOption.IGNORE_CASE)
+private val OTHER_DEVICE_AUDIO_CATEGORY_REGEX =
+    Regex("otherDeviceAudioCategory([0-9])", RegexOption.IGNORE_CASE)
+private val PLAYING_APP_REGEX =
+    Regex("playingApp.(.*?).hostStreamingState", RegexOption.IGNORE_CASE)
+
 /**
  * Manager class for Apple Accessory Communication Protocol (AACP)
  * This class is responsible for handling the L2CAP socket management,
@@ -61,6 +99,20 @@ class AACPManager {
         }
 
         private val HEADER_BYTES = byteArrayOf(0x04, 0x00, 0x04, 0x00)
+
+        // AACP 1.3 service discovery used by the legacy iOS 26 heart-rate path.
+        private val HEART_RATE_CONNECT_SERVICE_0 = byteArrayOf(
+            0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x03, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        )
+        private val HEART_RATE_CAPABILITIES_SERVICE_0 =
+            byteArrayOf(0x04, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00)
+        private val HEART_RATE_CONNECT_SERVICE_4 = byteArrayOf(
+            0x00, 0x00, 0x04, 0x00, 0x01, 0x00, 0x03, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        )
+        private val HEART_RATE_CAPABILITIES_SERVICE_4 =
+            byteArrayOf(0x04, 0x00, 0x04, 0x00, 0x01, 0x00, 0x00)
 
         data class ControlCommandStatus(
             val identifier: ControlCommandIdentifiers, val value: ByteArray
@@ -119,6 +171,11 @@ class AACPManager {
                     entries.find { it.value == byte }
             }
         }
+
+        internal fun shouldApplyControlStatusImmediately(
+            identifier: ControlCommandIdentifiers,
+            confirmedByAirPods: Boolean
+        ): Boolean = identifier != ControlCommandIdentifiers.OWNS_CONNECTION || confirmedByAirPods
 
         enum class ProximityKeyType(val value: Byte) {
             IRK(0x01), ENC_KEY(0x04);
@@ -190,6 +247,13 @@ class AACPManager {
     var connectedDevices: List<ConnectedDevice> = listOf()
         private set
 
+    private val heartRateAudioRouteEvidence = HeartRateAudioRouteEvidence()
+
+    fun hasLocalHeartRateRoute(localMac: String): Boolean =
+        heartRateAudioRouteEvidence.confirmsLocalRoute(localMac)
+
+    fun clearHeartRateAudioRoute() = heartRateAudioRouteEvidence.clear()
+
     var audioSource: AudioSource? = null
         private set
 
@@ -212,8 +276,14 @@ class AACPManager {
     }
 
     private fun setControlCommandStatusValue(
-        identifier: ControlCommandIdentifiers, value: ByteArray
+        identifier: ControlCommandIdentifiers,
+        value: ByteArray,
+        confirmedByAirPods: Boolean = false
     ) {
+        if (!shouldApplyControlStatusImmediately(identifier, confirmedByAirPods)) {
+            Log.d(TAG, "Waiting for AirPods to confirm ownership=$value")
+            return
+        }
         val existingStatus = getControlCommandStatus(identifier)
         if (existingStatus?.value.contentEquals(value)) {
             controlCommandStatusList.remove(existingStatus)
@@ -225,6 +295,7 @@ class AACPManager {
 
         if (identifier == ControlCommandIdentifiers.OWNS_CONNECTION) {
             owns = value.isNotEmpty() && value[0] == 0x01.toByte()
+            if (!owns) clearHeartRateAudioRoute()
         }
     }
 
@@ -235,6 +306,8 @@ class AACPManager {
         fun onControlCommandReceived(controlCommand: ByteArray)
         fun onDeviceInformationReceived(deviceInformation: AirPodsInformation)
         fun onHeadTrackingReceived(headTracking: ByteArray)
+        fun onHeartRateReceived(sample: AirPodsHeartRateSample)
+        fun onHeartRateServiceSettingAcknowledged()
         fun onUnknownPacketReceived(packet: ByteArray)
         fun onProximityKeysReceived(proximityKeys: ByteArray)
         fun onStemPressReceived(stemPress: ByteArray)
@@ -242,6 +315,7 @@ class AACPManager {
         fun onOwnershipChangeReceived(owns: Boolean)
         fun onConnectedDevicesReceived(connectedDevices: List<ConnectedDevice>)
         fun onOwnershipToFalseRequest(sender: String, reasonReverseTapped: Boolean)
+        fun onRemoteStreamingStateChanged(sender: String, isStreaming: Boolean)
         fun onShowNearbyUI(sender: String)
         fun onHeadphoneAccommodationReceived(eqData: FloatArray)
         fun onCustomEqReceived(customEq: CustomEq)
@@ -280,6 +354,7 @@ class AACPManager {
     }
 
     private var callback: PacketCallback? = null
+    private val heartRateProtocol = AirPodsHeartRateProtocol()
 
     fun setPacketCallback(callback: PacketCallback) {
         this.callback = callback
@@ -305,6 +380,45 @@ class AACPManager {
     fun sendDataPacket(data: ByteArray): Boolean {
         return sendPacket(createDataPacket(data))
     }
+
+    fun sendHeartRateSampling(intervalMicros: Int): Boolean {
+        val resolution = heartRateProtocol.currentServiceResolution()
+        if (resolution.serviceId == null) {
+            Log.w(TAG, "No compatible RTBuddy heart-rate service; sampling control skipped")
+            return false
+        }
+        Log.d(
+            TAG,
+            "Sending heart-rate sampling interval=$intervalMicros service=${resolution.serviceId} " +
+                "source=${resolution.source}"
+        )
+        return sendPacket(heartRateProtocol.createSamplingPacket(intervalMicros))
+    }
+
+    fun createHeartRateStartPackets(): List<ByteArray> =
+        heartRateProtocol.createStartPackets()
+
+    fun prepareHeartRateSamplingSession(): HeartRateServiceResolution =
+        heartRateProtocol.prepareSamplingSession()
+
+    fun currentHeartRateServiceResolution(): HeartRateServiceResolution =
+        heartRateProtocol.currentServiceResolution()
+
+    fun refreshPreparedHeartRateServiceResolution(): HeartRateServiceResolution =
+        heartRateProtocol.refreshPreparedServiceResolution()
+
+    fun advanceHeartRateServiceFallback(): HeartRateServiceResolution =
+        heartRateProtocol.advanceFallbackAfterFirstSampleTimeout()
+
+    fun sendHeartRateConnectService0(): Boolean = sendPacket(HEART_RATE_CONNECT_SERVICE_0)
+
+    fun sendHeartRateCapabilitiesService0(): Boolean =
+        sendPacket(HEART_RATE_CAPABILITIES_SERVICE_0)
+
+    fun sendHeartRateConnectService4(): Boolean = sendPacket(HEART_RATE_CONNECT_SERVICE_4)
+
+    fun sendHeartRateCapabilitiesService4(): Boolean =
+        sendPacket(HEART_RATE_CAPABILITIES_SERVICE_4)
 
     fun sendControlCommand(identifier: Byte, value: ByteArray): Boolean {
         val controlPacket = createControlCommandPacket(identifier, value)
@@ -397,8 +511,33 @@ class AACPManager {
         return opcode + data
     }
 
+    fun receivePacket(packet: ByteArray): Boolean {
+        val routed = heartRateProtocol.route(packet)
+        routed.serviceResolutionChanged?.let { resolution ->
+            Log.i(
+                TAG,
+                "RTBuddy heart-rate service resolved service=${resolution.serviceId} " +
+                    "source=${resolution.source}"
+            )
+        }
+        if (routed.heartRateFrameCount > 0) {
+            Log.d(
+                TAG,
+                "Heart-rate protocol frames=${routed.heartRateFrameCount} " +
+                    "validatedSamples=${routed.samples.size}"
+            )
+            routed.diagnostics.forEach { Log.d(TAG, "Heart-rate frame $it") }
+        }
+        routed.samples.forEach { callback?.onHeartRateReceived(it) }
+        repeat(routed.serviceSettingAcknowledgementCount) {
+            callback?.onHeartRateServiceSettingAcknowledged()
+        }
+        routed.passthroughPackets.forEach(::receiveStandardPacket)
+        return routed.suppressRawLogging
+    }
+
     @OptIn(ExperimentalStdlibApi::class)
-    fun receivePacket(packet: ByteArray) {
+    private fun receiveStandardPacket(packet: ByteArray) {
         if (!packet.toHexString().startsWith("04000400")) {
             Log.w(
                 TAG, "Received packet does not start with expected header: ${
@@ -430,7 +569,8 @@ class AACPManager {
                 }
                 setControlCommandStatusValue(
                     ControlCommandIdentifiers.fromByte(controlCommand.identifier) ?: return,
-                    controlCommand.value
+                    controlCommand.value,
+                    confirmedByAirPods = true
                 )
                 Log.d(
                     TAG,
@@ -508,6 +648,7 @@ class AACPManager {
                 try {
                     val (mac, type) = parseAudioSourceResponse(packet)
                     audioSource = AudioSource(mac, type)
+                    heartRateAudioRouteEvidence.onAudioSource(mac, type != AudioSourceType.NONE)
                 } catch (e: Exception) {
                     Log.e(TAG, "Error parsing audio source response: ${e.message}")
                 }
@@ -547,6 +688,17 @@ class AACPManager {
                     TAG,
                     "Smart Routing Response from $sender: $packetString, type: ${connectedDevices.find { it.mac == sender }?.type}"
                 )
+                val playbackState = parseSmartRoutingPlaybackState(packetString)
+                playbackState.hasRemotePlaybackIntent?.let { hasPlaybackIntent ->
+                    Log.d(
+                        TAG,
+                        "Smart Routing playback state hostStreaming=${playbackState.hostStreaming} " +
+                            "otherDeviceAudioCategory=${playbackState.otherDeviceAudioCategory} " +
+                            "playingAppActive=${playbackState.playingAppActive} " +
+                            "playbackIntent=$hasPlaybackIntent"
+                    )
+                    callback?.onRemoteStreamingStateChanged(sender, hasPlaybackIntent)
+                }
                 if (packetString.contains("SetOwnershipToFalse")) {
                     callback?.onOwnershipToFalseRequest(
                         sender,
@@ -1137,6 +1289,7 @@ class AACPManager {
     }
 
     @OptIn(ExperimentalStdlibApi::class)
+    @Synchronized
     fun sendPacket(packet: ByteArray): Boolean {
         try {
             Log.d(TAG, "Sending packet: ${packet.joinToString(" ") { "%02X".format(it) }}")
@@ -1271,6 +1424,8 @@ class AACPManager {
 
     fun disconnected() {
         Log.d(TAG, "Disconnected, clearing state")
+        heartRateProtocol.reset()
+        clearHeartRateAudioRoute()
         controlCommandStatusList.clear()
         controlCommandListeners.clear()
         owns = false

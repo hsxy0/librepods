@@ -6,13 +6,18 @@ import android.content.SharedPreferences
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import me.kavishdevar.librepods.BuildConfig
+import me.kavishdevar.librepods.PREFERENCE_HIDE_FROM_RECENTS
 import me.kavishdevar.librepods.billing.BillingManager
 import me.kavishdevar.librepods.data.XposedRemotePrefProvider
+import me.kavishdevar.librepods.services.NotificationAnnouncementService
+import me.kavishdevar.librepods.utils.RootSpatialAudioController
+import me.kavishdevar.librepods.utils.SpatialAudioMode
 import kotlin.math.roundToInt
 
 data class AppSettingsUiState(
@@ -27,16 +32,26 @@ data class AppSettingsUiState(
     val takeoverWhenRingingCall: Boolean = false,
     val takeoverWhenMediaStart: Boolean = false,
     val useAlternateHeadTrackingPackets: Boolean = true,
+    val spatialAudioMode: SpatialAudioMode = SpatialAudioMode.OFF,
+    val spatialAudioCapabilityChecked: Boolean = false,
+    val spatialAudioHelperAvailable: Boolean = false,
+    val spatializerAvailable: Boolean = false,
+    val spatialAudioBusy: Boolean = false,
+    val spatialAudioError: String? = null,
     val conversationalAwarenessVolume: Float = 43f,
     val showCameraDialog: Boolean = false,
     val cameraPackageValue: String = "",
     val cameraPackageError: String? = null,
     val vendorIdHook: Boolean = false,
+    val vendorAttSocket: Boolean = true,
+    val smartRoutingAutoTakeover: Boolean = false,
     val isPremium: Boolean = false,
     val connectionSuccessful: Boolean = false,
     val showBottomSheetPopup: Boolean = true,
     val showIslandPopup: Boolean = true,
     val timeUntilFOSSPremiumExpiry: Long = 0L,
+    val notificationAnnouncementsEnabled: Boolean = false,
+    val hideFromRecents: Boolean = false,
     val m3eEnabled: Boolean = false
 )
 
@@ -47,18 +62,25 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     val uiState = _uiState.asStateFlow()
 
     private val xposedRemotePref = XposedRemotePrefProvider.create()
+    private val spatialAudioController = RootSpatialAudioController(application)
 
     val sharedPrefListener = SharedPreferences.OnSharedPreferenceChangeListener { sharedPref, key ->
-        if (key == "connection_successful") {
-            _uiState.update { it.copy(connectionSuccessful = sharedPref.getBoolean(key, false)) }
+        when (key) {
+            "connection_successful" ->
+                _uiState.update { it.copy(connectionSuccessful = sharedPref.getBoolean(key, false)) }
+            SpatialAudioMode.PREFERENCE_KEY, "spatial_audio_enabled", null ->
+                _uiState.update {
+                    it.copy(spatialAudioMode = SpatialAudioMode.fromPreferences(sharedPref))
+                }
         }
     }
 
 
     init {
-        loadSettings()
-        observeBilling()
         sharedPreferences.registerOnSharedPreferenceChangeListener(sharedPrefListener)
+        loadSettings()
+        refreshSpatialAudioCapability()
+        observeBilling()
     }
 
     override fun onCleared() {
@@ -146,12 +168,25 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
                 takeoverWhenRingingCall = sharedPreferences.getBoolean("takeover_when_ringing_call", false),
                 takeoverWhenMediaStart = sharedPreferences.getBoolean("takeover_when_media_start", false),
                 useAlternateHeadTrackingPackets = sharedPreferences.getBoolean("use_alternate_head_tracking_packets", true),
+                spatialAudioMode = SpatialAudioMode.fromPreferences(sharedPreferences),
                 conversationalAwarenessVolume = sharedPreferences.getInt("conversational_awareness_volume", 43).toFloat(),
                 cameraPackageValue = sharedPreferences.getString("custom_camera_package", "") ?: "",
                 vendorIdHook = xposedRemotePref.getBoolean("vendor_id_hook", false),
+                vendorAttSocket = sharedPreferences.getBoolean("vendor_att_socket", true),
+                smartRoutingAutoTakeover = sharedPreferences.getBoolean(
+                    "smart_routing_auto_takeover", false
+                ),
                 connectionSuccessful = sharedPreferences.getBoolean("connection_successful", false),
                 showBottomSheetPopup = sharedPreferences.getBoolean("show_bottom_sheet_popup", true),
                 showIslandPopup = sharedPreferences.getBoolean("show_island_popup", true),
+                notificationAnnouncementsEnabled = sharedPreferences.getBoolean(
+                    NotificationAnnouncementService.PREFERENCE_ENABLED,
+                    false
+                ),
+                hideFromRecents = sharedPreferences.getBoolean(
+                    PREFERENCE_HIDE_FROM_RECENTS,
+                    false
+                ),
                 m3eEnabled = sharedPreferences.getBoolean("m3e_enabled", true)
             )
         }
@@ -160,6 +195,20 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setShowPhoneBatteryInWidget(enabled: Boolean) {
         sharedPreferences.edit { putBoolean("show_phone_battery_in_widget", enabled) }
         _uiState.update { it.copy(showPhoneBatteryInWidget = enabled) }
+    }
+
+    fun setNotificationAnnouncementsEnabled(enabled: Boolean) {
+        sharedPreferences.edit {
+            putBoolean(NotificationAnnouncementService.PREFERENCE_ENABLED, enabled)
+        }
+        _uiState.update { it.copy(notificationAnnouncementsEnabled = enabled) }
+    }
+
+    fun setHideFromRecents(enabled: Boolean) {
+        sharedPreferences.edit {
+            putBoolean(PREFERENCE_HIDE_FROM_RECENTS, enabled)
+        }
+        _uiState.update { it.copy(hideFromRecents = enabled) }
     }
 
     fun setConversationalAwarenessPauseMusicEnabled(enabled: Boolean) {
@@ -212,6 +261,57 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.update { it.copy(useAlternateHeadTrackingPackets = enabled) }
     }
 
+    fun refreshSpatialAudioCapability() {
+        _uiState.update {
+            it.copy(spatialAudioBusy = true, spatialAudioError = null)
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = spatialAudioController.query()
+            _uiState.update {
+                it.copy(
+                    spatialAudioCapabilityChecked = true,
+                    spatialAudioHelperAvailable = result.helperAvailable,
+                    spatializerAvailable = result.spatializerAvailable,
+                    spatialAudioBusy = false,
+                    spatialAudioError = result.error
+                )
+            }
+        }
+    }
+
+    fun setSpatialAudioMode(mode: SpatialAudioMode) {
+        if (_uiState.value.spatialAudioBusy) return
+        _uiState.update { it.copy(spatialAudioBusy = true, spatialAudioError = null) }
+        viewModelScope.launch(Dispatchers.IO) {
+            // Until local AirPods playback and AACP are both ready, the
+            // head-tracked selection behaves as fixed spatial audio. The
+            // service promotes it to RELATIVE_WORLD after creating UHID.
+            val platformMode = if (mode == SpatialAudioMode.HEAD_TRACKED) {
+                SpatialAudioMode.FIXED
+            } else {
+                mode
+            }
+            val result = spatialAudioController.setMode(platformMode)
+            val succeeded = result.supported
+            if (succeeded) {
+                sharedPreferences.edit {
+                    putString(SpatialAudioMode.PREFERENCE_KEY, mode.preferenceValue)
+                    remove("spatial_audio_enabled")
+                }
+            }
+            _uiState.update {
+                it.copy(
+                    spatialAudioMode = if (succeeded) mode else it.spatialAudioMode,
+                    spatialAudioCapabilityChecked = true,
+                    spatialAudioHelperAvailable = result.helperAvailable,
+                    spatializerAvailable = result.spatializerAvailable,
+                    spatialAudioBusy = false,
+                    spatialAudioError = result.error
+                )
+            }
+        }
+    }
+
     fun setConversationalAwarenessVolume(volume: Float) {
         sharedPreferences.edit { putInt("conversational_awareness_volume", volume.roundToInt()) }
         _uiState.update { it.copy(conversationalAwarenessVolume = volume) }
@@ -241,6 +341,16 @@ class AppSettingsViewModel(application: Application) : AndroidViewModel(applicat
     fun setVendorIdHook(enabled: Boolean) {
         xposedRemotePref.putBoolean("vendor_id_hook", enabled)
         _uiState.update { it.copy(vendorIdHook = enabled) }
+    }
+
+    fun setVendorAttSocket(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean("vendor_att_socket", enabled) }
+        _uiState.update { it.copy(vendorAttSocket = enabled) }
+    }
+
+    fun setSmartRoutingAutoTakeover(enabled: Boolean) {
+        sharedPreferences.edit { putBoolean("smart_routing_auto_takeover", enabled) }
+        _uiState.update { it.copy(smartRoutingAutoTakeover = enabled) }
     }
 
     fun setShowBottomSheetPopup(enabled: Boolean) {

@@ -2,6 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <permission
+        android:name="me.kavishdevar.librepods.permission.HEART_RATE_BRIDGE"
+        android:protectionLevel="signature" />
+
+    <uses-permission android:name="me.kavishdevar.librepods.permission.HEART_RATE_BRIDGE" />
+
+    <queries>
+        <package android:name="com.gotokeep.keep" />
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <uses-feature
         android:name="android.hardware.telephony"
         android:required="false" />
@@ -120,6 +133,15 @@
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".services.NotificationAnnouncementService"
+            android:exported="true"
+            android:label="@string/notification_announcement_service"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
 <!--        <service-->

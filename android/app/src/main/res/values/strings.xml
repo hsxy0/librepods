@@ -1,6 +1,17 @@
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
     <string name="app_name" translatable="false">LibrePods</string>
     <string name="app_description">Liberate your AirPods from Apple\'s ecosystem.</string>
+    <string name="notification_announcement_service">Notification announcements</string>
+    <string name="notification_announcements">Notification announcements</string>
+    <string name="notification_announcements_description">Announces new notification content only while the phone is locked and AirPods are available as a Bluetooth audio output.</string>
+    <string name="announce_notifications_on_lock_screen">Announce notifications on lock screen</string>
+    <string name="announce_notifications_on_lock_screen_description">Speaks the app name, sender, and message content. Secret, ongoing, system, and media notifications are skipped.</string>
+    <string name="notification_access">Notification access</string>
+    <string name="notification_access_granted">Granted</string>
+    <string name="notification_access_required">Required. Tap to allow LibrePods to read notifications.</string>
+    <string name="voice_engine">Voice engine</string>
+    <string name="xiaoai_voice_engine_active">XiaoAI speech engine</string>
+    <string name="default_voice_engine_fallback">System default (XiaoAI engine not available)</string>
     <string name="app_widget_description">See your AirPods battery status right from your home screen!</string>
     <string name="accessibility">Accessibility</string>
     <string name="tone_volume">Tone Volume</string>
@@ -13,6 +24,11 @@
     <string name="case_alt">Case</string>
     <string name="test">Test</string>
     <string name="name">Name</string>
+    <string name="heart_rate">Heart rate</string>
+    <string name="heart_rate_off">Off</string>
+    <string name="heart_rate_measuring">Measuring…</string>
+    <string name="heart_rate_live">Live</string>
+    <string name="bpm" translatable="false">BPM</string>
     <string name="noise_control">Listening Mode</string>
     <string name="off">Off</string>
     <string name="transparency">Transparency</string>
@@ -159,8 +175,12 @@
     <string name="use_alternate_head_tracking_packets">Use alternate head tracking packets</string>
     <string name="use_alternate_head_tracking_packets_description">Enable this if head tracking doesn\'t work for you. This sends different data to AirPods for requesting/stopping head tracking data.</string>
     <string name="act_as_an_apple_device">Act as an Apple device</string>
-    <string name="act_as_an_apple_device_description">Enables multi-device connectivity and Accessibility features like customizing transparency mode (amplification, tone, ambient noise reduction, conversation boost, and EQ)</string>
+    <string name="act_as_an_apple_device_description">Advertise an Apple Bluetooth identity for multi-device connectivity. The two riskier behaviors below can be enabled separately.</string>
     <string name="act_as_an_apple_device_warning">Might be unstable!! A maximum of two devices can be connected to your AirPods. If you are using with an Apple device like an iPad or Mac, then please connect that device first and then your Android.</string>
+    <string name="vendor_att_socket">Enable PSM 31 accessibility channel</string>
+    <string name="vendor_att_socket_description">Required for some hearing and custom transparency controls. Leave off while testing Mac + Android stability.</string>
+    <string name="smart_routing_auto_takeover">Allow automatic Smart Routing takeover</string>
+    <string name="smart_routing_auto_takeover_description">Allows playback or calls to request ownership from another device. Manual “move back” remains available when this is off.</string>
     <string name="reset_hook_offset">Reset Hook Offset</string>
     <string name="reset_hook_offset_description">This will clear the current hook offset and require you to go through the setup process again. Are you sure you want to continue?</string>
     <string name="reset">Reset</string>
@@ -292,6 +312,9 @@
     <string name="recommended">Recommended</string>
     <string name="appearance">Appearance</string>
     <string name="use_material3e">Use Material 3 Expressive</string>
+    <string name="background">Background</string>
+    <string name="hide_from_recents">Hide LibrePods from Recents</string>
+    <string name="hide_from_recents_description">Hide the app card from Recents.</string>
     <string name="material3e">Material 3 Expressive</string>
     <string name="update_m3e_description">LibrePods now supports a whole new look based on Material 3 Expressive including updated typography and adaptive color schemes.\nYou can switch back to the Apple look from the app\'s settings.</string>
     <string name="update_equalizer_description">Available only on the latest AirPods Beta firmware. An Apple device running OS version 27 is required to install the beta firmware.</string>
@@ -303,4 +326,20 @@
     <string name="i_agree">I agree</string>
     <string name="compatibility_check_bypassed">Compatibility check bypassed. Are you sure your device is compatible?</string>
     <string name="apple_identity_model_description">Identifies this phone as an Apple device for compatible connection features. Available controls depend on your AirPods model; this does not unlock Pro hearing features on AirPods 5. Restart Bluetooth after changing this setting.</string>
+    <string name="spatial_audio">Spatial Audio</string>
+    <string name="spatial_audio_mode_description">Choose whether spatial audio is off, fixed to your head, or anchored to the phone with head tracking.</string>
+    <string name="spatial_audio_off">Off</string>
+    <string name="spatial_audio_off_description">Turns off spatial audio.</string>
+    <string name="spatial_audio_fixed">Fixed</string>
+    <string name="spatial_audio_fixed_description">Enables spatial audio without head tracking. The sound stage moves with your head.</string>
+    <string name="spatial_audio_head_tracking">Head tracking</string>
+    <string name="spatial_audio_description">Keeps the sound stage anchored to the phone while you move your head. Requires the KSU module.</string>
+    <string name="spatial_audio_checking">Checking Root, UHID and Spatializer support…</string>
+    <string name="spatial_audio_helper_unavailable">The Root head-tracker helper or /dev/uhid is unavailable.</string>
+    <string name="spatial_audio_platform_unavailable">This Android audio implementation does not expose a compatible Spatializer.</string>
+    <string name="log_capture_complete">Log capture completed. You can save or share the file.</string>
+    <string name="log_capture_partial">Partial log saved: %1$s</string>
+    <string name="log_capture_failed">Log capture failed: %1$s</string>
+    <string name="log_capture_stopping">Finishing…</string>
+    <string name="log_capture_stop">Stop collection</string>
 </resources>

@@ -110,6 +110,7 @@ import me.kavishdevar.librepods.presentation.components.BatteryView
 import me.kavishdevar.librepods.presentation.components.CallControlSettings
 import me.kavishdevar.librepods.presentation.components.ConnectionSettings
 import me.kavishdevar.librepods.presentation.components.HearingHealthSettings
+import me.kavishdevar.librepods.presentation.components.HeartRateCard
 import me.kavishdevar.librepods.presentation.components.MaterialButtonStyle
 import me.kavishdevar.librepods.presentation.components.NoiseControlSettings
 import me.kavishdevar.librepods.presentation.components.PressAndHoldSettings
@@ -180,6 +181,7 @@ fun AirPodsSettingsRoute(
             setDynamicEndOfCharge = viewModel::setDynamicEndOfCharge,
             setOffListeningMode = viewModel::setOffListeningMode,
             disconnect = viewModel::disconnect,
+            onHeartRateEnabledChanged = viewModel::setHeartRateMonitoringEnabled,
 
             navigateToRename = navigateToRename,
             navigateToHearingProtection = navigateToHearingProtection,
@@ -222,6 +224,7 @@ fun AirPodsSettingsScreen(
         setDynamicEndOfCharge: (Boolean) -> Unit,
         setOffListeningMode: (Boolean) -> Unit,
         disconnect: () -> Unit,
+        onHeartRateEnabledChanged: (Boolean) -> Unit = {},
 
         navigateToRename: () -> Unit,
         navigateToHearingProtection: () -> Unit,
@@ -331,6 +334,22 @@ fun AirPodsSettingsScreen(
                     description = deviceName.text,
                     onClick = navigateToRename,
                 )
+            }
+
+            val supportsHeartRate =
+                state.instance?.model?.capabilities?.contains(Capability.HRM) == true
+            if (supportsHeartRate) {
+                item(key = "spacer_heart_rate") {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                item(key = "heart_rate") {
+                    HeartRateCard(
+                        enabled = state.heartRateEnabled,
+                        streaming = state.heartRateStreaming,
+                        bpm = state.heartRateBpm,
+                        onEnabledChange = onHeartRateEnabledChanged
+                    )
+                }
             }
 
             val hasHearingAidCapability =

@@ -13,6 +13,10 @@
     <string name="case_alt">充電盒</string>
     <string name="test">測試</string>
     <string name="name">名稱</string>
+    <string name="heart_rate">心率</string>
+    <string name="heart_rate_off">關閉</string>
+    <string name="heart_rate_measuring">正在測量…</string>
+    <string name="heart_rate_live">即時心率</string>
     <string name="noise_control">聽覺模式</string>
     <string name="off">關閉</string>
     <string name="transparency">通透模式</string>
@@ -242,4 +246,23 @@
     <string name="not_supported">不支援</string>
     <string name="check_the_repository_for_more_info">請查看儲存庫以獲取更多資訊。</string>
     <string name="apple_identity_model_description">將手機的藍牙身分模擬為 Apple 裝置，以使用相容的連線功能。可用設定取決於耳機型號，不會為 AirPods 5 解鎖 Pro 專屬的聽力功能。變更後需重新啟動藍牙。</string>
+    <string name="spatial_audio">空間音訊</string>
+    <string name="spatial_audio_mode_description">選擇關閉空間音訊、讓聲場隨頭部移動，或透過頭部追蹤將聲場錨定在手機方向。</string>
+    <string name="spatial_audio_off">關閉</string>
+    <string name="spatial_audio_off_description">關閉空間音訊</string>
+    <string name="spatial_audio_fixed">固定</string>
+    <string name="spatial_audio_fixed_description">開啟空間音訊但不追蹤頭部，聲場會隨頭部一起移動。</string>
+    <string name="spatial_audio_head_tracking">頭部追蹤</string>
+    <string name="spatial_audio_description">轉動頭部時讓聲場保持錨定在手機方向。需要 KSU 模組。</string>
+    <string name="spatial_audio_checking">正在檢查 Root、UHID 和 Spatializer 支援…</string>
+    <string name="spatial_audio_helper_unavailable">Root 頭部追蹤元件或 /dev/uhid 無法使用。</string>
+    <string name="spatial_audio_platform_unavailable">目前 Android 音訊系統沒有相容的 Spatializer。</string>
+    <string name="background">背景執行</string>
+    <string name="hide_from_recents">在最近使用的應用程式中隱藏 LibrePods</string>
+    <string name="hide_from_recents_description">隱藏應用程式卡片。</string>
+    <string name="log_capture_complete">日誌擷取完成，可以儲存或分享檔案。</string>
+    <string name="log_capture_partial">已保留部分日誌：%1$s</string>
+    <string name="log_capture_failed">日誌擷取失敗：%1$s</string>
+    <string name="log_capture_stopping">正在儲存…</string>
+    <string name="log_capture_stop">停止擷取</string>
 </resources>
