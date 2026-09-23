@@ -122,6 +122,18 @@ jobs:
           ./gradlew --no-daemon --stacktrace assembleFossRelease \
             2>&1 | tee build/ci-release.log
 
+      - name: Build root module debug ZIP
+        id: root_module
+        if: ${{ steps.apk.outcome == 'success' }}
+        working-directory: android
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --no-daemon --stacktrace zipDebugModule \
+            2>&1 | tee build/ci-root-module.log
+          cd app/build/outputs/rootModuleZips
+          sha256sum *.zip > SHA256SUMS
+
       - name: Run JVM unit tests
         id: tests
         if: ${{ !cancelled() && steps.apk.outcome == 'success' }}
@@ -169,6 +181,17 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Upload root module debug ZIP
+        if: ${{ !cancelled() && steps.root_module.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: root-module-debug-${{ github.run_id }}
+          path: |
+            android/app/build/outputs/rootModuleZips/*.zip
+            android/app/build/outputs/rootModuleZips/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Upload release APK
         if: ${{ !cancelled() && steps.release.outcome == 'success' }}
         uses: actions/upload-artifact@v4
@@ -197,6 +220,7 @@ jobs:
         env:
           SDK_OUTCOME: ${{ steps.sdk.outcome }}
           APK_OUTCOME: ${{ steps.apk.outcome }}
+          ROOT_MODULE_OUTCOME: ${{ steps.root_module.outcome }}
           TEST_OUTCOME: ${{ steps.tests.outcome }}
           LINT_OUTCOME: ${{ steps.lint.outcome }}
         shell: bash
@@ -205,6 +229,7 @@ jobs:
             echo '## LibrePods Android debug validation'
             echo "SDK installation: ${SDK_OUTCOME}"
             echo "APK build: ${APK_OUTCOME}"
+            echo "Root module ZIP: ${ROOT_MODULE_OUTCOME}"
             echo "Release signing setup: ${SIGNING_OUTCOME}"
             echo "Signed Release APK: ${RELEASE_OUTCOME}"
             echo "JVM unit tests: ${TEST_OUTCOME}"

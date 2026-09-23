@@ -1,6 +1,6 @@
 id=librepods
 name=LibrePods
-version=v1.0.0-airpods5.2
-versionCode=65
+version=v1.0.0-airpods5.3
+versionCode=81
 author=@kavishdevar, fork release @cfy114514, beidaoc
 description=Installs LibrePods as a system app and provides the root head-tracker helper for Android spatial audio integration.

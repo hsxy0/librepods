@@ -1041,11 +1041,11 @@ public class XiaomiFixModule extends XposedModule {
     }
 
     private void info(String message) {
-        log(Log.INFO, TAG, message);
+        log(Log.INFO, TAG, message, null);
     }
 
     private void warn(String message) {
-        log(Log.WARN, TAG, message);
+        log(Log.WARN, TAG, message, null);
     }
 
     private interface HookBody {
