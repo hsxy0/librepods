@@ -17,5 +17,5 @@
 ## 验证与设备检查
 
 - `python -m unittest discover -s android/tests -p test_xposed_api_contract.py -v` 验证 API 100 编译依赖和模块入口。
-- GitHub Actions `Android Debug CI` 执行 `assembleFossDebug`、`zipDebugModule`、JVM 单测、`lintFossDebug`，成功后上传带 SHA-256 的 APK 与 root 模块 ZIP。具体成功运行号将在 CI 通过后补充。
+- GitHub Actions [运行 35850781253](https://github.com/hsxy0/librepods/actions/runs/35850781253) 在提交 `857ce2f` 上为 `success`：`assembleFossDebug`、`zipDebugModule`、JVM 单测、`lintFossDebug` 和两项产物上传均通过。产物为 `apk-foss-debug-35850781253`、`root-module-debug-35850781253`，各自包含 SHA-256 清单。
 - 真机仍需检查：AirPods 5 连接与 ANC/通透控制、Pro 1 自定通透、心率读取及 Keep 桥接、小米蓝牙/MiLink、空间音频头部追踪、通知播报和 root 模块安装。尤其要确认目标 Xposed 框架对 API 100 构造函数及回调的实际执行。
