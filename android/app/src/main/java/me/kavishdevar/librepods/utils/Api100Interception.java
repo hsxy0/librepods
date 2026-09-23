@@ -85,7 +85,7 @@ public final class Api100Interception {
             }
             Constructor<?> constructor = (Constructor<?>) member;
             Object instance = callback.getThisObject();
-            module.invokeOrigin(constructor, instance, args);
+            module.invokeOrigin((Constructor) constructor, instance, args);
             return instance;
         }
     }

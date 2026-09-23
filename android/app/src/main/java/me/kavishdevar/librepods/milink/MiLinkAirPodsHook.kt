@@ -45,8 +45,7 @@ object MiLinkAirPodsHook {
         throwable: Throwable? = null,
     ) {
         Log.println(priority, tag, message + (throwable?.let { "\n" + Log.getStackTraceString(it) } ?: ""))
-        if (throwable == null) log(priority, tag, message)
-        else log(priority, tag, message, throwable)
+        log(priority, tag, message, throwable)
     }
 
     private const val STRATEGY_CLASS =
