@@ -782,6 +782,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
 //                    Log.d("AirPodsCrossDevice", CrossDevice.isAvailable.toString())
 //                    if (!CrossDevice.isAvailable) {
                     Log.d(TAG, "${config.deviceName} connected")
+                    showPopup(this@AirPodsService, config.deviceName)
                     CoroutineScope(Dispatchers.IO).launch {
                         val bluetoothManager = getSystemService(BluetoothManager::class.java)
                         connectToSocket(bluetoothManager.adapter, device!!)
@@ -1890,10 +1891,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
         if (popupShown) {
             return
         }
-        val popupWindow = PopupWindow(service.applicationContext)
+        val popupWindow = PopupWindow(service.applicationContext) {
+            popupShown = false
+        }
         val model = airpodsInstance?.model ?: AirPodsModels.getModelByModelNumber(config.airpodsModelNumber)
-        popupWindow.open(name, batteryNotification, model?.connectionArtworkRes)
-        popupShown = true
+        popupShown = popupWindow.open(name, batteryNotification, model?.connectionArtworkRes)
     }
 
     var islandOpen = false
@@ -2816,7 +2818,11 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                         traceConnectionEvent("hfp_audio_state_changed", "previous=$previous state=$state inCall=$isInCall")
                     }
                 } else if (BluetoothDevice.ACTION_ACL_CONNECTED == action) {
-                    if (bluetoothDevice.uuids?.contains(uuid) == true) {
+                    val savedMac = sharedPreferences.getString("mac_address", "").orEmpty()
+                    if (shouldDispatchAirPodsConnection(
+                            savedMac, bluetoothDevice.address,
+                            bluetoothDevice.uuids?.contains(uuid) == true
+                        )) {
                         val intent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
                         intent.putExtra("name", name)
                         intent.putExtra("device", bluetoothDevice)
@@ -2827,9 +2833,10 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                 } else if ("android.bluetooth.device.action.UUID" == action) {
                     val savedMac = context?.getSharedPreferences("settings", MODE_PRIVATE)
                         ?.getString("mac_address", "") ?: ""
-                    val matchedByMac = savedMac.isNotEmpty() && bluetoothDevice.address == savedMac
-                    val matchedByUuid = bluetoothDevice.uuids?.contains(uuid) == true
-                    if (matchedByUuid || matchedByMac) {
+                    if (shouldDispatchAirPodsConnection(
+                            savedMac, bluetoothDevice.address,
+                            bluetoothDevice.uuids?.contains(uuid) == true
+                        )) {
                         val intent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
                         intent.putExtra("name", name)
                         intent.putExtra("device", bluetoothDevice)
@@ -4790,6 +4797,15 @@ private fun Int.dpToPx(): Int {
     val density = Resources.getSystem().displayMetrics.density
     return (this * density).toInt()
 }
+
+/** Recognize the saved AirPods before SDP completes, or a new pair by its service UUID. */
+internal fun shouldDispatchAirPodsConnection(
+    savedAddress: String,
+    connectedAddress: String,
+    hasAirPodsUuid: Boolean
+): Boolean = connectedAddress.isNotBlank() &&
+    ((savedAddress.isNotBlank() && connectedAddress.equals(savedAddress, ignoreCase = true)) ||
+        hasAirPodsUuid)
 
 fun getNextMode(currentMode: Int, configByte: Int, offmodeEnabled: Boolean): Int {
     val enabledModes = buildList {

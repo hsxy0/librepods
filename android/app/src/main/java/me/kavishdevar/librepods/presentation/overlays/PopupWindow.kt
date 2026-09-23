@@ -131,7 +131,7 @@ class PopupWindow(
     }
 
     @SuppressLint("InlinedApi", "SetTextI18s")
-    fun open(name: String = "AirPods Pro", batteryNotification: AirPodsNotifications.BatteryNotification, artworkRes: Int? = null) {
+    fun open(name: String = "AirPods Pro", batteryNotification: AirPodsNotifications.BatteryNotification, artworkRes: Int? = null): Boolean {
         try {
             if (mView.windowToken == null && mView.parent == null && !isClosing) {
                 mView.findViewById<TextView>(R.id.name).text = name
@@ -154,11 +154,7 @@ class PopupWindow(
                     vid.setOnCompletionListener { vid.start() }
                 }
 
-                try {
-                    mWindowManager.addView(mView, mParams)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
+                mWindowManager.addView(mView, mParams)
 
                 val displayMetrics = mView.context.resources.displayMetrics
                 val screenHeight = displayMetrics.heightPixels
@@ -178,11 +174,18 @@ class PopupWindow(
 
                 autoCloseRunnable = Runnable { close() }
                 autoCloseHandler.postDelayed(autoCloseRunnable!!, 12000)
+                return true
             }
         } catch (e: Exception) {
-            Log.e("PopupWindow", "Error opening popup: ${e.message}")
+            Log.e("PopupWindow", "Error opening popup", e)
+            autoCloseRunnable?.let { autoCloseHandler.removeCallbacks(it) }
+            unregisterBatteryUpdateReceiver()
+            if (mView.parent != null) {
+                runCatching { mWindowManager.removeViewImmediate(mView) }
+            }
             onCloseCallback()
         }
+        return false
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
