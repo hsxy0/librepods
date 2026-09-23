@@ -36,18 +36,19 @@
 - 将模块入口构造函数、Hooker 回调、模块应用信息及日志调用调整为 API 100 契约。
 - 保持 app 侧已发布的 `libxposed:service:101.0.0` 不变。
 - 加入来源与许可证说明，以及两项 API 契约回归测试。
-- 风险：尚未得到远端完整 APK 构建和真实 Xposed 设备验证。回滚方式是回退本修复提交；但原始 API 100 依赖错误会恢复。
+- 风险：远端构建已通过，但尚未在真实 Xposed 设备上验证运行时行为。回滚方式是回退本修复提交；但原始 API 100 依赖错误会恢复。
 
 ## 验证结果
 
 - `python -m unittest discover -s android/tests -p test_xposed_api_contract.py -v`：2 项通过。
 - `git diff --check`：通过。
-- 完整 `assembleFossDebug`、`testFossDebugUnitTest`、`lintFossDebug`：待具备 Android SDK 的 CI 验证。
-- GitHub CI：尚未触发。当前本机 SSH Key 未获得该仓库写权限，HTTPS remote 无非交互式写凭据；Computer Use 浏览器服务未返回可用会话。
+- 修复分支 GitHub CI：[运行 35812983200](https://github.com/hsxy0/librepods/actions/runs/35812983200) 结论为 `success`；`Build FOSS debug APK`、`Run JVM unit tests`、`Run Android Lint`、checksum 与上传步骤均成功。
+- APK artifact：`apk-foss-debug-35812983200`，GitHub API 显示大小 23,290,794 字节；报告 artifact 也已上传。
+- 本机未安装 Android SDK，完整 APK 构建由上述 GitHub CI 验证。
 
 ## 手动验证步骤
 
-1. 将修复分支推送到 `hsxy0/librepods`，打开 **Actions → Android Debug CI**，找到该分支最新运行。
+1. 打开 **Actions → Android Debug CI**，找到修复分支运行 `35812983200`。
 2. 打开 **Build FOSS debug APK**，确认依赖解析通过且 `assembleFossDebug` 以 `BUILD SUCCESSFUL` 结束。
 3. 检查 **Run JVM unit tests** 与 **Run Android Lint** 均成功。
 4. 在运行页面下载 APK artifact，确认包含 `app-foss-debug.apk`，并核对 checksum 文件。
@@ -56,4 +57,5 @@
 
 ## 遗留问题
 
-- 取得本仓库可用的 GitHub 写权限后推送并继续 CI 闭环；出现新构建错误时按新日志继续修复。
+- 对 `main` 推进修复后，另行确认 `main` 的 Actions 运行及 APK artifact。
+- 在 API 100 Xposed 设备上执行上述运行时手动验证。
