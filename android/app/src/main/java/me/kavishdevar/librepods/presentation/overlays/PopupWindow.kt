@@ -23,6 +23,7 @@ import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -62,6 +63,7 @@ class PopupWindow(
     private var autoCloseHandler = Handler(Looper.getMainLooper())
     private var autoCloseRunnable: Runnable? = null
     private var batteryUpdateReceiver: BroadcastReceiver? = null
+    private var artworkAnimator: ObjectAnimator? = null
 
     @Suppress("DEPRECATION")
     private val mParams: WindowManager.LayoutParams = WindowManager.LayoutParams().apply {
@@ -145,7 +147,22 @@ class PopupWindow(
                     vid.visibility = View.GONE
                     artwork.setImageResource(artworkRes)
                     artwork.visibility = View.VISIBLE
+                    artworkAnimator?.cancel()
+                    artworkAnimator = ObjectAnimator.ofPropertyValuesHolder(
+                        artwork,
+                        PropertyValuesHolder.ofFloat(View.SCALE_X, 0.94f, 1.02f),
+                        PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.94f, 1.02f),
+                        PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, 8f, -8f)
+                    ).apply {
+                        duration = 1500
+                        repeatCount = ValueAnimator.INFINITE
+                        repeatMode = ValueAnimator.REVERSE
+                        interpolator = DecelerateInterpolator()
+                        start()
+                    }
                 } else {
+                    artworkAnimator?.cancel()
+                    artworkAnimator = null
                     artwork.visibility = View.GONE
                     vid.visibility = View.VISIBLE
                     vid.setAudioFocusRequest(AudioManager.AUDIOFOCUS_NONE)
@@ -271,6 +288,8 @@ class PopupWindow(
 
             val vid = mView.findViewById<VideoView>(R.id.video)
             vid.stopPlayback()
+            artworkAnimator?.cancel()
+            artworkAnimator = null
 
             ObjectAnimator.ofFloat(mView, "translationY", mView.height.toFloat()).apply {
                 duration = 500

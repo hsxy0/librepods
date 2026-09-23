@@ -21,8 +21,8 @@ four PNGs extract parts of that image, without redrawing or changing their color
 | right | 138, 55, 82, 150 |
 | case | 260, 15, 220, 210 |
 
-AirPods 4 connection overlays show the complete static artwork. AirPods 5
-connection overlays use the existing video animation, so the connection popup
-does not become a still image. The bundled animation is a shared fallback rather
-than an AirPods 5-specific asset. Transparent PNG backgrounds follow the popup
-theme where static artwork is used.
+AirPods 4 and AirPods 5 connection overlays show this artwork. AirPods 5 uses
+the same shape as its main screen rather than the bundled AirPods Pro video;
+the overlay animates the artwork's position and scale while it is open. This
+remains an AirPods 4 silhouette until dedicated AirPods 5 artwork is available.
+Transparent PNG backgrounds follow the popup theme.

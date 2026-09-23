@@ -27,8 +27,8 @@ restart to reload the hook.
 Unknown device information no longer defaults to Pro 2/Pro 3. The About section
 shows the recognized generation and variant. Main-screen and connection-popup
 main-screen artwork is shared with AirPods 4 (see [artwork sources](airpods-4-artwork.md))
-and is not used to determine capabilities. Connection overlays use the existing
-video animation. Real AirPods connection events also leave the hidden demo mode
+and is not used to determine capabilities. Connection overlays animate that
+artwork instead of showing the bundled AirPods Pro video. Real AirPods connection events also leave the hidden demo mode
 so the Pro demonstration identity does not mask the connected AirPods 5.
 
 ## Sources

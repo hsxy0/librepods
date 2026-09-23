@@ -80,6 +80,7 @@ class IslandWindow(private val context: Context) {
     @SuppressLint("InflateParams")
     private val islandView: View = LayoutInflater.from(context).inflate(R.layout.island_window, null)
     private var isClosing = false
+    private var artworkAnimator: ObjectAnimator? = null
     private var params: WindowManager.LayoutParams? = null
 
     private var initialY = 0f
@@ -381,7 +382,22 @@ class IslandWindow(private val context: Context) {
             videoView.visibility = View.GONE
             artwork.setImageResource(artworkRes)
             artwork.visibility = View.VISIBLE
+            artworkAnimator?.cancel()
+            artworkAnimator = ObjectAnimator.ofPropertyValuesHolder(
+                artwork,
+                PropertyValuesHolder.ofFloat(View.SCALE_X, 0.92f, 1.04f),
+                PropertyValuesHolder.ofFloat(View.SCALE_Y, 0.92f, 1.04f),
+                PropertyValuesHolder.ofFloat(View.TRANSLATION_Y, 4f, -4f)
+            ).apply {
+                duration = 1200
+                repeatCount = ValueAnimator.INFINITE
+                repeatMode = ValueAnimator.REVERSE
+                interpolator = DecelerateInterpolator()
+                start()
+            }
         } else {
+            artworkAnimator?.cancel()
+            artworkAnimator = null
             artwork.visibility = View.GONE
             videoView.visibility = View.VISIBLE
             val videoUri = "android.resource://me.kavishdevar.librepods/${R.raw.island}".toUri()
@@ -681,6 +697,8 @@ class IslandWindow(private val context: Context) {
             resetStretchEffects()
 
             val videoView = islandView.findViewById<VideoView>(R.id.island_video_view)
+            artworkAnimator?.cancel()
+            artworkAnimator = null
             try {
                 videoView.stopPlayback()
             } catch (e: Exception) {
@@ -712,6 +730,8 @@ class IslandWindow(private val context: Context) {
             Handler(Looper.getMainLooper()).post { cleanupAndRemoveView() }
             return
         }
+        artworkAnimator?.cancel()
+        artworkAnimator = null
         try {
             containerView.visibility = View.GONE
         } catch (e: Exception) {
