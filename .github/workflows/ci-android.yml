@@ -154,6 +154,28 @@ jobs:
           ./gradlew --no-daemon --stacktrace lintFossDebug \
             2>&1 | tee build/ci-lint.log
 
+      - name: Show lint errors
+        if: ${{ !cancelled() && steps.lint.outcome == 'failure' }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          report = Path('android/app/build/reports/lint-results-fossDebug.xml')
+          if not report.exists():
+              print(f'Lint XML report missing: {report}')
+          else:
+              for issue in ET.parse(report).getroot().findall('issue'):
+                  if issue.get('severity') not in ('Error', 'Fatal'):
+                      continue
+                  locations = issue.findall('location')
+                  for location in locations or [None]:
+                      path = location.get('file') if location is not None else '?'
+                      line = location.get('line') if location is not None else '?'
+                      print(f"{path}:{line}: {issue.get('id')}: {issue.get('message')}")
+          PY
+
       - name: Checksum debug APK
         if: ${{ !cancelled() }}
         shell: bash
