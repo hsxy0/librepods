@@ -151,8 +151,15 @@ fun TroubleshootingScreen() {
 
     var instructionText by remember { mutableStateOf("") }
     val isDarkTheme = isSystemInDarkTheme()
+    val completeSummary = stringResource(R.string.log_capture_complete)
+    val partialSummary = stringResource(
+        R.string.log_capture_partial, captureState.result?.reason.orEmpty()
+    )
+    val failedSummary = stringResource(
+        R.string.log_capture_failed, captureState.result?.reason.orEmpty()
+    )
 
-    LaunchedEffect(captureState) {
+    LaunchedEffect(captureState, completeSummary, partialSummary, failedSummary) {
         val files = withContext(Dispatchers.IO) {
             File(context.filesDir, "logs").listFiles()?.filter {
                 it.name.endsWith(".txt") && it != captureState.activeFile
@@ -167,9 +174,9 @@ fun TroubleshootingScreen() {
         } else {
             captureState.result?.let { result ->
                 captureSummary = when (result.status) {
-                    LogCollector.Status.COMPLETE -> context.getString(R.string.log_capture_complete)
-                    LogCollector.Status.PARTIAL -> context.getString(R.string.log_capture_partial, result.reason)
-                    LogCollector.Status.FAILED -> context.getString(R.string.log_capture_failed, result.reason)
+                    LogCollector.Status.COMPLETE -> completeSummary
+                    LogCollector.Status.PARTIAL -> partialSummary
+                    LogCollector.Status.FAILED -> failedSummary
                 }
                 selectedLogFile = result.file
                 showTroubleshootingSteps = true

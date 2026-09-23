@@ -5,11 +5,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
+
+import androidx.core.content.ContextCompat;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -248,22 +249,14 @@ public final class KeepHeartRateModule extends XposedModule {
             return;
         }
         IntentFilter filter = new IntentFilter(KeepHeartRateBridge.ACTION_STATE);
-        if (Build.VERSION.SDK_INT >= 33) {
-            context.registerReceiver(
-                    bridgeReceiver,
-                    filter,
-                    KeepHeartRateBridge.PERMISSION,
-                    mainHandler,
-                    Context.RECEIVER_EXPORTED
-            );
-        } else {
-            context.registerReceiver(
-                    bridgeReceiver,
-                    filter,
-                    KeepHeartRateBridge.PERMISSION,
-                    mainHandler
-            );
-        }
+        ContextCompat.registerReceiver(
+                context,
+                bridgeReceiver,
+                filter,
+                KeepHeartRateBridge.PERMISSION,
+                mainHandler,
+                ContextCompat.RECEIVER_EXPORTED
+        );
         receiverRegistered = true;
         info("registered signature-protected LibrePods receiver");
     }
