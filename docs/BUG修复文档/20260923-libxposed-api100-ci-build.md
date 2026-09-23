@@ -44,6 +44,8 @@
 - `git diff --check`：通过。
 - 修复分支 GitHub CI：[运行 35812983200](https://github.com/hsxy0/librepods/actions/runs/35812983200) 结论为 `success`；`Build FOSS debug APK`、`Run JVM unit tests`、`Run Android Lint`、checksum 与上传步骤均成功。
 - APK artifact：`apk-foss-debug-35812983200`，GitHub API 显示大小 23,290,794 字节；报告 artifact 也已上传。
+- `main` 提交 `54935d8` 的 [运行 35813462742](https://github.com/hsxy0/librepods/actions/runs/35813462742) 结论为 `success`；上述五个步骤全部成功。
+- `main` APK artifact：`apk-foss-debug-35813462742`，GitHub API 显示大小 23,290,793 字节；报告 artifact 也已上传。
 - 本机未安装 Android SDK，完整 APK 构建由上述 GitHub CI 验证。
 
 ## 手动验证步骤
@@ -57,5 +59,4 @@
 
 ## 遗留问题
 
-- 对 `main` 推进修复后，另行确认 `main` 的 Actions 运行及 APK artifact。
 - 在 API 100 Xposed 设备上执行上述运行时手动验证。
