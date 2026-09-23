@@ -93,17 +93,17 @@ class AirPodsModelsTest {
     }
 
     @Test
-    fun airPods5UsesAllFiveAirPods4ArtworkReferences() {
+    fun airPods5KeepsAirPods4MainArtworkButUsesAnimatedOverlays() {
         assertSameArtwork(AirPods4(), AirPods5())
     }
 
     @Test
-    fun airPods5WirelessUsesAllFiveAirPods4ArtworkReferences() {
+    fun airPods5WirelessKeepsAirPods4MainArtworkButUsesAnimatedOverlays() {
         assertSameArtwork(AirPods4(), AirPods5Wireless())
     }
 
     private fun assertSameArtwork(expected: AirPodsBase, actual: AirPodsBase) {
-        assertEquals(expected.connectionArtworkRes, actual.connectionArtworkRes)
+        assertNull(actual.connectionArtworkRes)
         assertEquals(expected.budCaseRes, actual.budCaseRes)
         assertEquals(expected.budsRes, actual.budsRes)
         assertEquals(expected.leftBudsRes, actual.leftBudsRes)

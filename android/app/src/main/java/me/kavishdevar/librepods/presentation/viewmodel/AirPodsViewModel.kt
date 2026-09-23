@@ -326,10 +326,13 @@ class AirPodsViewModel(
         broadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 val action = intent?.action ?: return
+                if (isDemoMode && isRealAirPodsConnectionEvent(action)) {
+                    exitDemoMode()
+                }
                 if (!isDemoMode) when (action) {
                     AirPodsNotifications.AIRPODS_L2CAP_CONNECTED -> {
                         _uiState.update {
-                            it.copy(isLocallyConnected = true)
+                            it.copy(isLocallyConnected = BluetoothConnectionManager.aacpSocket?.isConnected == true)
                         }
                     }
 
@@ -362,6 +365,7 @@ class AirPodsViewModel(
 
         val filter = IntentFilter().apply {
             addAction(AirPodsNotifications.AIRPODS_CONNECTED)
+            addAction(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
             addAction(AirPodsNotifications.AIRPODS_DISCONNECTED)
             addAction(AirPodsNotifications.BATTERY_DATA)
             addAction(AirPodsNotifications.EQ_DATA)
@@ -755,6 +759,16 @@ class AirPodsViewModel(
         _uiState.update {demoState}
     }
 
+    private fun exitDemoMode() {
+        isDemoMode = false
+        _uiState.value = AirPodsUiState()
+        loadName()
+        loadSharedPreferences()
+        loadCurrentStatus()
+        loadEq()
+        _uiState.update { it.copy(isPremium = BillingManager.provider.isPremium.value) }
+    }
+
     fun sendPhoneMediaEQ(eq: FloatArray, phoneByte: Byte, mediaByte: Byte) {
         service.aacpManager.sendPhoneMediaEQ(eq, phoneByte, mediaByte)
     }
@@ -790,10 +804,7 @@ class AirPodsViewModel(
 
     fun disconnect() {
         if (isDemoMode) {
-            isDemoMode = false
-            _uiState.update {
-                it.copy(isLocallyConnected = false)
-            }
+            exitDemoMode()
         } else {
             service.disconnectAirPods()
             if (appContext.checkSelfPermission("android.permission.BLUETOOTH_PRIVILEGED") != PackageManager.PERMISSION_GRANTED) {
@@ -805,3 +816,8 @@ class AirPodsViewModel(
         }
     }
 }
+
+/** A real AirPods connection supersedes the preview state. */
+internal fun isRealAirPodsConnectionEvent(action: String): Boolean =
+    action == AirPodsNotifications.AIRPODS_CONNECTION_DETECTED ||
+        action == AirPodsNotifications.AIRPODS_CONNECTED

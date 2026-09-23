@@ -138,8 +138,8 @@ class AirPods4ANC: AirPodsBase(
     )
 )
 
-// Share only artwork with AirPods 4; capabilities stay model-specific.
-// The same artwork is used on the main screen and connection overlays.
+// Share main-screen artwork with AirPods 4; capabilities stay model-specific.
+// Connection overlays use the existing video animation.
 private val airPods4Artwork = AirPods4()
 
 // AirPods 5 capabilities follow docs/airpods-5.md; AACP controls need device validation.
@@ -147,7 +147,6 @@ private val airPods4Artwork = AirPods4()
 class AirPods5: AirPodsBase(
     modelNumber = listOf("A3531", "A3532", "A3533"),
     name = "AirPods 5",
-    connectionArtworkRes = airPods4Artwork.connectionArtworkRes,
     budCaseRes = airPods4Artwork.budCaseRes,
     budsRes = airPods4Artwork.budsRes,
     leftBudsRes = airPods4Artwork.leftBudsRes,
@@ -168,7 +167,6 @@ class AirPods5: AirPodsBase(
 class AirPods5Wireless: AirPodsBase(
     modelNumber = listOf("A3439", "A3440", "A3441"),
     name = "AirPods 5 (Wireless Charging Case)",
-    connectionArtworkRes = airPods4Artwork.connectionArtworkRes,
     budCaseRes = airPods4Artwork.budCaseRes,
     budsRes = airPods4Artwork.budsRes,
     leftBudsRes = airPods4Artwork.leftBudsRes,
