@@ -159,7 +159,7 @@ dependencies {
     implementation(libs.backdrop)
 //    implementation(libs.hilt)
 //    implementation(libs.hilt.compiler)
-    compileOnly(libs.libxposed.api)
+    compileOnly(project(":xposed-api"))
     implementation(libs.libxposed.service)
     implementation(libs.play.review)
     implementation(libs.play.review.ktx)
