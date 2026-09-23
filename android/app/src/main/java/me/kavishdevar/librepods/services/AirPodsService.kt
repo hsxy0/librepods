@@ -2824,6 +2824,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             bluetoothDevice.uuids?.contains(uuid) == true
                         )) {
                         val intent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
+                            .setPackage(packageName)
                         intent.putExtra("name", name)
                         intent.putExtra("device", bluetoothDevice)
                         context?.sendBroadcast(intent)
@@ -2838,6 +2839,7 @@ class AirPodsService : Service(), SharedPreferences.OnSharedPreferenceChangeList
                             bluetoothDevice.uuids?.contains(uuid) == true
                         )) {
                         val intent = Intent(AirPodsNotifications.AIRPODS_CONNECTION_DETECTED)
+                            .setPackage(packageName)
                         intent.putExtra("name", name)
                         intent.putExtra("device", bluetoothDevice)
                         context?.sendBroadcast(intent)
